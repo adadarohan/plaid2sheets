@@ -1,9 +1,9 @@
 name: Money Sync
 
 on:
-  # Run on a cron schedule (daily at 2 AM UTC)
+  # Run weekly on Monday at 3:17 AM UTC
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '17 3 * * 1'
   
   # Allow manual trigger
   workflow_dispatch:

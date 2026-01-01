@@ -27,6 +27,8 @@ I was able to get approved for production access by answering all security / com
 - `GOOGLE_SHEETS_CREDENTIALS` - The contents of the JSON file you downloaded in step 6 of the previous step.
 Alternatively, you can create a `.env` and `google_sheets_credentials.json` file in the root of the project and run it locally.
 
+6. On the Github website, go to Actions -> Money Sync -> Run workflow -> Run workflow to run the sync for the first time. Subsequent runs will be automatic based on the schedule defined in `.github/workflows/run-money-sync.yaml` (defaults to weekly updates).
+
 ## Common Issues
 ### Plaid Access Token "Something went wrong" only for certain accounts
 If you see this error when trying to fetch transactions, it likely means that your Plaid account has not completed the OAuth flow for that particular institution. See [plaid oath page](https://dashboard.plaid.com/activity/status/oauth-institutions) for more details.
