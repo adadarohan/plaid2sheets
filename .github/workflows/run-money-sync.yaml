@@ -11,7 +11,7 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    environment: production 
+    environment: prod 
 
     steps:
       - name: Checkout code
