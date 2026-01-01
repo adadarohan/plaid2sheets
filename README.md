@@ -1,5 +1,5 @@
 # plaid2sheets
-A script to fetch transactions from Plaid and upload them to a Google Sheets spreadsheet. Run as a github action or locally.
+A script to fetch transactions from Plaid and upload them to a Google Sheets spreadsheet for $0.30 / account / month. Run as a github action or locally.
 
 ## Setup
 This project takes about 15 minutes to set up from scratch. However, it can take a few days for Plaid to approve your developer account for production access.
