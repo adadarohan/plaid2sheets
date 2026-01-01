@@ -25,6 +25,7 @@ I was able to get approved for production access by answering all security / com
 - `PLAID_ACCESS_TOKENS` - Comma separated list of access tokens from step 2
 - `GOOGLE_SHEETS_KEY` - The key from the URL of the spreadsheet you created in step 3 (e.g. `1_e6Otb9KqxgkfhOvGsY46dpWNJqZQ_i8Kyxk3-Sa3RA`) 
 - `GOOGLE_SHEETS_CREDENTIALS` - The contents of the JSON file you downloaded in step 6 of the previous step.
+Alternatively, you can create a `.env` and `google_sheets_credentials.json` file in the root of the project and run it locally.
 
 ## Common Issues
 ### Plaid Access Token "Something went wrong" only for certain accounts
