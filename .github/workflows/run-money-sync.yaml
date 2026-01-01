@@ -31,7 +31,7 @@ jobs:
         run: echo '${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}' > google_sheets_credentials.json
       
       - name: Run sync
-        run: python main.py
+        run: uv run python main.py
         env:
           PLAID_CLIENT_ID: ${{ secrets.PLAID_CLIENT_ID }}
           PLAID_SECRET: ${{ secrets.PLAID_SECRET }}
