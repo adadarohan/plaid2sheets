@@ -1,131 +1,73 @@
+import logging
 import os
-import csv
-import hashlib
-from datetime import datetime, timezone
+
 from dotenv import load_dotenv
-import plaid
-from plaid.api import plaid_api
-from plaid.model.transactions_sync_request import TransactionsSyncRequest
-import gspread
+
+from models.delta import TransactionsDelta
+from services.plaid_service import create_plaid_client, fetch_plaid_delta, hash_token
+from services.reconciliation import local_reconcile
+from services.sheets_service import (
+    get_sheets_client,
+    get_or_create_worksheet,
+    load_meta,
+    push_sheets_delta,
+)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
-def get_or_create_worksheet(spreadsheet, name):
-    """Get worksheet by name, create if it doesn't exist."""
-    try:
-        return spreadsheet.worksheet(name)
-    except gspread.WorksheetNotFound:
-        return spreadsheet.add_worksheet(title=name, rows=1000, cols=20)
-
-
-def load_cursors_from_meta(meta_worksheet):
-    """Load cursor mappings from _meta worksheet."""
-    cursors = {}
-    try:
-        records = meta_worksheet.get_all_values()
-        for row in records:
-            if len(row) >= 2 and row[0] != 'last_run_time_utc':
-                cursors[row[0]] = row[1]
-    except Exception:
-        pass
-    return cursors
-
-
-def save_meta(meta_worksheet, cursors):
-    """Save metadata to _meta worksheet."""
-    meta_worksheet.clear()
-    rows = [['last_run_time_utc', datetime.now(timezone.utc).isoformat()]]
-    for token_hash, cursor in cursors.items():
-        rows.append([token_hash, cursor])
-    meta_worksheet.update(range_name='A1', values=rows)
-
-
-def hash_token(token):
-    """Hash access token for storage."""
-    return hashlib.sha256(token.encode()).hexdigest()[:16]
-
-
-def main():
-    # Load environment variables
+def main() -> None:
+    """
+    Main orchestration flow:
+    1. Get meta info (cursors) from Google Sheets
+    2. For each access token, fetch Plaid delta
+    3. Local reconciliation against added transactions
+    4. Push sheets delta to Google Sheets
+    """
     load_dotenv()
 
-    # Plaid configuration
-    configuration = plaid.Configuration(
-        host=plaid.Environment.Production,
-        api_key={
-            'clientId': os.getenv('PLAID_CLIENT_ID'),
-            'secret': os.getenv('PLAID_SECRET'),
-        }
-    )
-    api_client = plaid.ApiClient(configuration)
-    client = plaid_api.PlaidApi(api_client)
-
-    access_tokens = os.getenv('PLAID_ACCESS_TOKENS').split(',')
-
-    # Setup Google Sheets
-    gc = gspread.service_account(filename='google_sheets_credentials.json')
-    sh = gc.open_by_key(os.getenv('GOOGLE_SHEETS_KEY'))
+    # Get meta info (cursors) from Google Sheets
+    logger.info("Loading meta info from Google Sheets")
+    gc = get_sheets_client()
+    sh = gc.open_by_key(os.getenv("GOOGLE_SHEETS_KEY"))
     
-    transactions_worksheet = get_or_create_worksheet(sh, 'transactions')
-    meta_worksheet = get_or_create_worksheet(sh, '_meta')
+    transactions_worksheet = get_or_create_worksheet(sh, "transactions")
+    meta_worksheet = get_or_create_worksheet(sh, "_meta")
     
-    # Load existing cursors
-    cursors = load_cursors_from_meta(meta_worksheet)
-
-    all_transactions = []
-    all_accounts = {}
+    cursors = load_meta(meta_worksheet)
+    access_tokens = os.getenv("PLAID_ACCESS_TOKENS", "").split(",")
+    
+    # For each access token, fetch Plaid delta
+    logger.info("Fetching Plaid deltas for %d token(s)", len(access_tokens))
+    plaid_client = create_plaid_client()
+    plaid_delta = TransactionsDelta()
     
     for access_token in access_tokens:
         token_hash = hash_token(access_token)
-        cursor = cursors.get(token_hash, '')
-        
-        while True:
-            if cursor:
-                request = TransactionsSyncRequest(
-                    access_token=access_token,
-                    cursor=cursor
-                )
-            else:
-                request = TransactionsSyncRequest(
-                    access_token=access_token
-                )
-            response = client.transactions_sync(request)
-            
-            # Build account lookup
-            for account in response['accounts']:
-                all_accounts[account['account_id']] = account.get('official_name') or account['name']
-            
-            # Process added transactions
-            for txn in response['added']:
-                account_name = all_accounts.get(txn['account_id'], 'Unknown')
-                personal_finance = txn.get('personal_finance_category', {})
-                merchant_name = txn.get('merchant_name') or txn.get('name') or ''
+        cursor = cursors.get(token_hash, "")
+        fetch_plaid_delta(plaid_client, access_token, cursor, plaid_delta)
     
-                all_transactions.append([
-                    txn['transaction_id'],
-                    account_name,
-                    txn['amount'],
-                    str(txn['date']),
-                    merchant_name,
-                    personal_finance.get('primary') or '',
-                    personal_finance.get('detailed') or ''
-                ])
-            
-            cursor = response['next_cursor']
-            cursors[token_hash] = cursor
-            
-            if not response['has_more']:
-                break
-
-    print(f"Fetched {len(all_transactions)} transactions")
-
-    # Upload to Google Sheets
-    if all_transactions:
-        transactions_worksheet.append_rows(all_transactions)
-        print(f"Uploaded {len(all_transactions)} transactions to Google Sheets")
+    logger.info(
+        "Plaid delta complete: %d added, %d modified, %d deleted",
+        len(plaid_delta.added),
+        len(plaid_delta.modified),
+        len(plaid_delta.deleted),
+    )
     
-    # Save metadata
-    save_meta(meta_worksheet, cursors)
-    print("Updated _meta worksheet")
+    # Local reconciliation
+    logger.info("Running local reconciliation")
+    sheets_delta = local_reconcile(plaid_delta)
+    
+    # Push sheets delta
+    logger.info("Pushing sheets delta")
+    push_sheets_delta(transactions_worksheet, meta_worksheet, sheets_delta)
+    
+    logger.info("Sync complete")
 
 
 if __name__ == "__main__":
