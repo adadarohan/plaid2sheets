@@ -1,101 +1,168 @@
+<div align="center">
+
 # plaid2sheets
 
-`plaid2sheets` fetches transactions from Plaid and syncs them to a Google Sheets spreadsheet for  **$0.30 per account per month**.  
-It can be run locally or on a schedule using GitHub Actions.
+**Automated personal finance tracking made simple**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+
+*Sync your bank transactions to Google Sheets automatically for just **$0.30 per account per month***
+
+[Features](#features) • [Quick Start](#quick-start) • [Setup](#setup) • [Troubleshooting](#troubleshooting)
+
+</div>
+
+---
 
 ## Overview
 
-- Pulls transactions from one or more Plaid items (credit cards, bank accounts)
-- Writes normalized transaction data to a Google Sheet
-- Uses Plaid’s incremental sync API to avoid duplicates
-- Requires no paid infrastructure beyond Plaid itself
+`plaid2sheets` is a lightweight automation tool that syncs your financial transactions from Plaid directly to Google Sheets. Perfect for personal finance tracking without expensive subscription services.
+
+### Features
+
+- **Multi-Account Support** — Connect unlimited bank accounts and credit cards
+- **Incremental Sync** — Uses Plaid's sync API to avoid duplicates
+- **Rich Categories** — Includes both high-level and detailed transaction categories
+- **Zero Infrastructure** — Run locally or use GitHub Actions (free tier included)
+- **Cost Effective** — Only pay Plaid's API fees ($0.30/account/month)
+- **Privacy First** — Your data stays between Plaid and your Google Sheet
+
 
 ## Setup
 
-Initial setup takes about **15 minutes**, but **Plaid production access approval may take a few days**.
+> **Setup time:** ~15 minutes  
+> **Note:** Plaid production access approval may take 2-5 business days
 
-### 1. Create a Plaid developer account
+### Step 1: Create a Plaid Developer Account
 
-- Sign up at https://my.plaid.com/sign-up
-- Request **production access**
-- Enable the **Transactions** product
-- Note your **Client ID** and **Secret**
+1. Sign up at [Plaid Dashboard](https://my.plaid.com/sign-up)
+2. Request **production access**
+3. Enable the **Transactions** product
+4. Save your **Client ID** and **Secret**
 
-For personal-use projects, production access approval is typically straightforward if you clearly state that no third parties will access the data.
+<details>
+<summary>Tips for production approval</summary>
 
-### 2. Generate access tokens
+For personal-use projects, approval is typically straightforward. In your application:
+- Clearly state this is for **personal use only**
+- Mention that **no third parties** will access the data
+- Explain you're building a personal finance tracker
 
-Create a Plaid access token for each account (bank, credit card) you want to sync.
+</details>
 
-Recommended methods:
-- Plaid Postman collection (recommended):  
-  https://github.com/plaid/plaid-postman
-- Plaid Quickstart app:  
-  https://plaid.com/docs/quickstart/
+### Step 2: Generate Access Tokens
 
-> **Warning**  
-> Do not lose or expose access tokens.  
-> Plaid bills per access token (including duplicates). Removing tokens from your code is **not sufficient**—you must delete unused tokens from the Plaid dashboard to stop billing.
+Create a Plaid access token for each bank account or credit card you want to sync.
 
-### 3. Create the Google Sheet
+**Recommended methods:**
 
-Create a Google Sheets spreadsheet and add a worksheet named **`transactions`** with the following header row:
+| Method | Link | Best For |
+|--------|------|----------|
+| Plaid Postman | [plaid/plaid-postman](https://github.com/plaid/plaid-postman) | Quick API testing |
+| Plaid Quickstart | [Quickstart Guide](https://plaid.com/docs/quickstart/) | Full UI experience |
 
-| Transaction ID | Account Name | Amount | Date | Merchant Name | Category | Detailed Category |
-|----------------|--------------|--------|------|---------------|----------|-------------------|
+> **IMPORTANT: Access Token Security**
+> 
+> - Never commit tokens to version control
+> - Each token costs $0.30/month — including duplicates!
+> - Deleting tokens from code ≠ stopping billing
+> - **Always delete unused tokens** from the [Plaid Dashboard](https://dashboard.plaid.com)
 
-### 4. Set up Google Sheets API access
+### Step 3: Create Your Google Sheet
 
-Follow **steps 1–6** in the gspread service account guide:  
-https://docs.gspread.org/en/latest/oauth2.html#for-bots-using-service-account
+1. Create a new [Google Sheets](https://sheets.google.com) spreadsheet
+2. Add a worksheet named `transactions`
+3. Add this exact header row:
 
-After downloading the credentials JSON:
-- Copy the **service account email**
-- Share your spreadsheet (from step 3) with that email, with **Editor** access
+```
+Transaction ID | Account Name | Amount | Date | Merchant Name | Category | Detailed Category
+```
 
+### Step 4: Set Up Google Sheets API Access
 
-### 5. Configure secrets
+1. Follow **steps 1-6** in the [gspread service account guide](https://docs.gspread.org/en/latest/oauth2.html#for-bots-using-service-account)
+2. Download the service account credentials JSON
+3. Copy the **service account email** from the JSON
+4. Share your spreadsheet with that email (grant **Editor** access)
 
-Fork this repository and add the following **GitHub Actions secrets**  
-(Settings → Secrets and variables → Actions):
+### Step 5: Configure Secrets
 
-- `PLAID_CLIENT_ID`  
-  Plaid client ID
-- `PLAID_SECRET`  
-  Plaid production secret
-- `PLAID_ACCESS_TOKENS`  
-  Comma-separated list of access tokens
-- `GOOGLE_SHEETS_KEY`  
-  Spreadsheet ID from the Google Sheets URL  
-  (e.g. `1_e6Otb9KqxgkfhOvGsY46dpWNJqZQ_i8Kyxk3-Sa3RA`)
-- `GOOGLE_SHEETS_CREDENTIALS`  
-  Full contents of the service account JSON file
+#### For GitHub Actions (Recommended)
 
-**Local execution:**  
-Instead of GitHub secrets, you may create:
-- a `.env` file (see `.env.example` for format)
-- a `google_sheets_credentials.json` file in the project root with the service account JSON
+Fork this repository and add these secrets in **Settings → Secrets and variables → Actions**:
 
-### 6. Run the workflow
+| Secret Name | Description | Example |
+|------------|-------------|---------|
+| `PLAID_CLIENT_ID` | Your Plaid client ID | `5f8a...` |
+| `PLAID_SECRET` | Your Plaid production secret | `abc123...` |
+| `PLAID_ACCESS_TOKENS` | Comma-separated access tokens | `access-prod-abc,access-prod-xyz` |
+| `GOOGLE_SHEETS_KEY` | Spreadsheet ID from URL | `1_e6Otb9K...Sa3RA` |
+| `GOOGLE_SHEETS_CREDENTIALS` | Full service account JSON contents | `{"type": "service_account"...}` |
 
-- Go to **Actions → Money Sync → Run workflow**
-- Run it once manually to verify setup
-- Subsequent runs follow the schedule defined in  
-  `.github/workflows/run-money-sync.yaml` (weekly by default)
+#### For Local Execution
 
-## Common Issues
+Create these files in the project root:
 
-### Plaid access token fails for specific institutions
+**`.env`** (see `.env.example` for template)
+```env
+PLAID_CLIENT_ID=your_client_id
+PLAID_SECRET=your_secret
+PLAID_ACCESS_TOKENS=token1,token2
+GOOGLE_SHEETS_KEY=your_spreadsheet_id
+```
 
-If transaction sync fails with a generic “Something went wrong” error for only some accounts, the OAuth flow for that institution may be incomplete.
+**`google_sheets_credentials.json`**
+```json
+{
+  "type": "service_account",
+  "project_id": "...",
+  ...
+}
+```
 
-Check Plaid’s OAuth status page:  
-https://dashboard.plaid.com/activity/status/oauth-institutions
+### Step 6: Run the Sync
 
+#### GitHub Actions
+1. Go to **Actions → Money Sync → Run workflow**
+2. Click **Run workflow** to test
+3. Verify transactions appear in your sheet
+4. Subsequent runs happen automatically (weekly by default, configured in `.github/workflows/run-money-sync.yaml`)
 
-## Design Decisions and Notes
+#### Local Execution
+```bash
+python main.py
+```
 
-### Transaction categories
+---
+
+## Troubleshooting
+
+### "Something went wrong" error for specific banks
+
+**Symptoms:** Transaction sync fails only for certain financial institutions
+
+**Solution:** The OAuth flow for that institution may be incomplete. Check Plaid's OAuth status:
+- [OAuth Institutions Status](https://dashboard.plaid.com/activity/status/oauth-institutions)
+
+### Duplicate transactions appearing
+
+**Cause:** The sync cursor was reset or lost
+
+**Solution:** Check the `_meta` worksheet in your Google Sheet. Each access token (hashed) should have a cursor value.
+
+### Missing transactions
+
+**Possible causes:**
+1. First sync only fetches recent transactions (typically 30 days)
+2. Check Plaid's [transaction history](https://plaid.com/docs/api/products/transactions/#transactions-sync) limits
+3. Verify the account is properly linked in Plaid Dashboard
+
+---
+
+## Architecture & Design
+
+### Transaction Categories
 
 Plaid provides both:
 - A high-level category (e.g. `Food and Drink`)
@@ -116,10 +183,59 @@ These are kept in a `_meta` worksheet in the same spreadsheet.
 The worksheet is created automatically if it does not exist.
 
 
-### Local reconciliation
+### Reconciliation Philosophy
 
-Transaction reconciliation is intentionally kept separate from syncing.  
-This allows future extensions such as:
-- Custom categorization
-- Manual overrides
+Transaction reconciliation is intentionally **decoupled** from syncing. This enables:
+
+- Custom categorization rules
+- Manual transaction overrides  
 - Business-specific logic
+- Integration with other tools
+
+---
+
+## Sheet Format
+
+Your `transactions` worksheet will be populated with:
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| Transaction ID | Unique Plaid identifier | `AbCdEf123` |
+| Account Name | Institution name | `Chase Freedom` |
+| Amount | Transaction amount (negative = expense) | `-42.50` |
+| Date | Transaction date | `2026-02-01` |
+| Merchant Name | Store or service | `Whole Foods Market` |
+| Category | High-level category | `Food and Drink` |
+| Detailed Category | Specific category | `Groceries` |
+
+---
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes:
+
+1. Open an issue first to discuss proposed changes
+2. Update documentation as needed
+3. Add tests if applicable
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Disclaimer
+
+This project is not affiliated with Plaid Inc. Use at your own risk. Always review your financial data for accuracy and keep your credentials secure.
+
+---
+
+<div align="center">
+
+**Built with ❤️ for personal finance nerds**
+
+[Report Bug](https://github.com/adadarohan/plaid2sheets/issues) · [Request Feature](https://github.com/adadarohan/plaid2sheets/issues)
+
+</div>
