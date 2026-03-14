@@ -78,8 +78,8 @@ def push_sheets_delta(
         try:
             cell = transactions_worksheet.find(txn.transaction_id)
             if cell:
-                cell_range = f"A{cell.row}:G{cell.row}"
-                transactions_worksheet.update(range_name=cell_range, values=[txn.to_row()])
+                cell_range = f"A{cell.row}:H{cell.row}"
+                transactions_worksheet.update(range_name=cell_range, values=[txn.to_row()], value_input_option="USER_ENTERED")
                 logger.info("Updated transaction %s at row %d", txn.transaction_id, cell.row)
         except gspread.exceptions.CellNotFound:
             # Add as new if not found
@@ -92,7 +92,7 @@ def push_sheets_delta(
     # Handle new transactions
     if sheets_delta.added:
         rows = [txn.to_row() for txn in sheets_delta.added.values()]
-        transactions_worksheet.append_rows(rows)
+        transactions_worksheet.append_rows(rows, value_input_option="USER_ENTERED")
         logger.info("Appended %d new transactions", len(rows))
     
     # Save metadata

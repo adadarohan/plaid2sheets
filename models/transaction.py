@@ -13,6 +13,7 @@ class Transaction:
     merchant_name: str
     category_primary: str
     category_detailed: str
+    category_source: str = "Plaid"
 
     def to_row(self) -> list[str | float]:
         """Convert transaction to a row for Google Sheets."""
@@ -24,6 +25,7 @@ class Transaction:
             self.merchant_name,
             self.category_primary,
             self.category_detailed,
+            self.category_source,
         ]
 
     @classmethod

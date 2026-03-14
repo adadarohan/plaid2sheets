@@ -1,8 +1,97 @@
 import logging
 
+import gspread
+
 from models.delta import TransactionsDelta
+from models.transaction import Transaction
 
 logger = logging.getLogger(__name__)
+
+
+def load_rules(spreadsheet: gspread.Spreadsheet) -> dict[str, tuple[str, str]]:
+    """
+    Load category override rules from rules worksheet.
+    
+    Returns:
+        Dict mapping lowercase merchant_name -> (override_category, override_detailed_category)
+        Returns empty dict if rules worksheet doesn't exist
+    """
+    rules: dict[str, tuple[str, str]] = {}
+    try:
+        rules_worksheet = spreadsheet.worksheet("rules")
+        records = rules_worksheet.get_all_values()
+        
+        # Skip header row
+        for row in records[1:]:
+            if len(row) >= 3 and row[0]:
+                merchant_name_lower = row[0].strip().lower()
+                override_category = row[1].strip()
+                override_detailed_category = row[2].strip()
+                
+                if merchant_name_lower and override_category:
+                    rules[merchant_name_lower] = (override_category, override_detailed_category)
+        
+        logger.info("Loaded %d rule(s) from rules sheet", len(rules))
+    except gspread.WorksheetNotFound:
+        logger.info("No rules worksheet found - skipping category overrides")
+    except Exception as e:
+        logger.warning("Failed to load rules: %s", e)
+    
+    return rules
+
+
+def apply_category_rules(
+    delta: TransactionsDelta, rules: dict[str, tuple[str, str]]
+) -> None:
+    """
+    Apply category override rules to transactions.
+    
+    Updates transactions in-place if their merchant name matches a rule.
+    Sets category_source to "Rules Sheet" for overridden categories.
+    
+    Args:
+        delta: The transactions delta to apply rules to (mutated in place)
+        rules: Dict mapping lowercase merchant_name -> (category, detailed_category)
+    """
+    if not rules:
+        logger.info("No rules to apply")
+        return
+    
+    total_overridden = 0
+    
+    # Apply rules to added transactions
+    for txn in delta.added.values():
+        merchant_lower = txn.merchant_name.lower()
+        if merchant_lower in rules:
+            override_category, override_detailed = rules[merchant_lower]
+            txn.category_primary = override_category
+            txn.category_detailed = override_detailed
+            txn.category_source = "Rules Sheet"
+            total_overridden += 1
+            logger.debug(
+                "Applied rule to transaction %s: %s -> %s",
+                txn.transaction_id,
+                txn.merchant_name,
+                override_category,
+            )
+    
+    # Apply rules to modified transactions
+    for txn in delta.modified:
+        merchant_lower = txn.merchant_name.lower()
+        if merchant_lower in rules:
+            override_category, override_detailed = rules[merchant_lower]
+            txn.category_primary = override_category
+            txn.category_detailed = override_detailed
+            txn.category_source = "Rules Sheet"
+            total_overridden += 1
+            logger.debug(
+                "Applied rule to modified transaction %s: %s -> %s",
+                txn.transaction_id,
+                txn.merchant_name,
+                override_category,
+            )
+    
+    logger.info("Applied category rules to %d transaction(s)", total_overridden)
 
 
 def local_reconcile(delta: TransactionsDelta) -> TransactionsDelta:

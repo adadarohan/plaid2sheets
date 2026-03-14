@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from models.delta import TransactionsDelta
 from services.plaid_service import create_plaid_client, fetch_plaid_delta, hash_token
-from services.reconciliation import local_reconcile
+from services.reconciliation import apply_category_rules, load_rules, local_reconcile
 from services.sheets_service import (
     get_sheets_client,
     get_or_create_worksheet,
@@ -58,6 +58,11 @@ def main() -> None:
         len(plaid_delta.modified),
         len(plaid_delta.deleted),
     )
+    
+    # Apply category rules from rules sheet (if it exists)
+    logger.info("Loading and applying category rules")
+    rules = load_rules(sh)
+    apply_category_rules(plaid_delta, rules)
     
     # Local reconciliation
     logger.info("Running local reconciliation")

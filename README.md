@@ -76,8 +76,33 @@ Create a Plaid access token for each bank account or credit card you want to syn
 3. Add this exact header row:
 
 ```
-Transaction ID | Account Name | Amount | Date | Merchant Name | Category | Detailed Category
+Transaction ID | Account Name | Amount | Date | Merchant Name | Category | Detailed Category | Category Source
 ```
+
+#### Optional: Category Override Rules
+
+You can create an optional `rules` worksheet to override Plaid's automatic categorization for specific merchants:
+
+1. Add a worksheet named `rules` (case-sensitive)
+2. Add this exact header row:
+
+```
+Merchant Name | Override Category | Override Detailed Category
+```
+
+3. Add rules for any merchants you want to recategorize:
+
+| Merchant Name | Override Category | Override Detailed Category |
+|--------------|-------------------|---------------------------|
+| Amazon | Shopping | Online Shopping |
+| Costco | Groceries | Warehouse Club |
+| Spotify | Entertainment | Music Streaming |
+
+**How it works:**
+- Merchant names are matched case-insensitively (e.g., "amazon" matches "Amazon", "AMAZON", etc.)
+- When a transaction's merchant name matches a rule, its category is overridden
+- The `Category Source` column will show "Rules Sheet" instead of "Plaid" for overridden transactions
+- If the `rules` worksheet doesn't exist, this feature is skipped automatically
 
 ### Step 4: Set Up Google Sheets API Access
 
@@ -202,11 +227,14 @@ Your `transactions` worksheet will be populated with:
 |--------|-------------|---------|
 | Transaction ID | Unique Plaid identifier | `AbCdEf123` |
 | Account Name | Institution name | `Chase Freedom` |
-| Amount | Transaction amount (negative = expense) | `-42.50` |
+| Amount | Transaction amount (positive = expense) | `42.50` |
 | Date | Transaction date | `2026-02-01` |
 | Merchant Name | Store or service | `Whole Foods Market` |
 | Category | High-level category | `Food and Drink` |
 | Detailed Category | Specific category | `Groceries` |
+| Category Source | Origin of category | `Plaid` or `Rules Sheet` |
+
+The `Category Source` field indicates whether the category came from Plaid's automatic categorization or was overridden by a rule in your `rules` worksheet.
 
 ---
 
